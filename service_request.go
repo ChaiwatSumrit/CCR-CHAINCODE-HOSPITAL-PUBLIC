@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"strconv"
 	"time"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -20,7 +23,16 @@ const TxtCCRR = "CCRR|"
 // CCRcertificateReceipt containing all main fields for organization request
 type CCRcertificateReceipt struct {
 	Asset
-	// wait ICE!!!
+	docID      	string    `json:"docID" valid:"required"` //Key
+	createDate 	time.Time `json:"TimeStamp" valid:"optional"`
+	stage      	string    `json:"stage" valid:"required"`
+	hospital	[]string  `json:"hospital" valid:"required"`
+	patient		[]string  `json:"patient" valid:"required"`
+	physician	[]string  `json:"physician" valid:"required"`
+	physicianReport	[]string  `json:"physicianReport" valid:"required"`
+	receipt		[]string  `json:"receipt" valid:"required"`
+	remeningAmount	int  `json:"remeningAmount" valid:"required"`
+	comment		string  `json:"comment" valid:"required"`
 }
 
 // EndorseInvoiceDoubleFinance containing all main fields for organization request
@@ -69,9 +81,9 @@ func (t *InvoiceDoubleFinance) Init(stub shim.ChaincodeStubInterface) pb.Respons
 func (t *InvoiceDoubleFinance) CreateCertificateReceipt(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	methodName := "[CreateCertificateReceipt]"
 	// Check number of args.
-	if len(args) != 2 { //N wait ICE !!
-		logger.Errorf(methodName + " Incorrect number of arguments. Expecting 2")
-		return shim.Error(methodName + " Incorrect number of arguments. Expecting 2")
+	if len(args) != 10 { 
+		logger.Errorf(methodName + " Incorrect number of arguments. Expecting 10")
+		return shim.Error(methodName + " Incorrect number of arguments. Expecting 10")
 		//todo: create custom event
 	}
 	//Check devorgId Tcert attribute
@@ -85,13 +97,23 @@ func (t *InvoiceDoubleFinance) CreateCertificateReceipt(stub shim.ChaincodeStubI
 
 	var sr CCRcertificateReceipt
 
-	sr = CCRcertificateReceipt{}
-
+	sr = CCRcertificateReceipt{
+		docID = args[0],
+		createDate = args[1],
+		stage = args[2],
+		hospital = args[3],	
+		patient = args[4],	
+		physician = args[5],	
+		physicianReport = args[6],	
+		receipt = args[7],		
+		remeningAmount = args[8],	
+		comment = args[9]
+	}
 	// Validate Invoice Existing
-	keyCheck := TxtInv + args[0]
+	keyCheck := TxtCCR + docID
 	InvoiceDoubleFinanceJSONBytes, _ := stub.GetState(keyCheck)
 	if CCRcertificateReceiptJSONBytes == nil {
-		key := TxtInv + sr.InvIdentity
+		key := TxtCCR + sr.docID
 		srJSONBytes, _ := json.Marshal(sr)
 		// Write service request to world state]
 		err = stub.PutState(key, srJSONBytes)
@@ -99,13 +121,12 @@ func (t *InvoiceDoubleFinance) CreateCertificateReceipt(stub shim.ChaincodeStubI
 			logger.Errorf(methodName + " PutState error: " + err.Error())
 		}
 	} else {
-		logger.Errorf(methodName + "Invoice has Already Exist")
-		return shim.Error(methodName + "Invoice has Already Exist")
+		logger.Errorf(methodName + "CCR has Already Exist")
+		return shim.Error(methodName + "CCR has Already Exist")
 	}
 
 	return shim.Success(nil)
 } //End of CreateIdfInvoiceDoubleFinance function
-
 
 //GetInvoiceById - Get a InvoiceDoubleFinance by ID
 func (t *InvoiceDoubleFinance) GetInvoiceById(stub shim.ChaincodeStubInterface, args []string) pb.Response {
@@ -223,7 +244,6 @@ func getQueryResultForQueryString(stub shim.ChaincodeStubInterface, queryString 
 	return []byte(message), nil
 }
 
-
 // //CreateIdfInvoiceDoubleFinance
 // func (t *InvoiceDoubleFinance) CreateIdfInvoiceDoubleFinance(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 // 	methodName := "[CreateIdfInvoiceDoubleFinance]"
@@ -257,10 +277,10 @@ func getQueryResultForQueryString(stub shim.ChaincodeStubInterface, queryString 
 // 		InvRemainingAmount: saveDraftSRTx.InvRemainingAmount}
 
 // 	// Validate Invoice Existing
-// 	keyCheck := TxtInv + args[0]
+// 	keyCheck := TxtCCR + args[0]
 // 	InvoiceDoubleFinanceJSONBytes, _ := stub.GetState(keyCheck)
 // 	if InvoiceDoubleFinanceJSONBytes == nil {
-// 		key := TxtInv + sr.InvIdentity
+// 		key := TxtCCR + sr.InvIdentity
 // 		srJSONBytes, _ := json.Marshal(sr)
 // 		// Write service request to world state]
 // 		err = stub.PutState(key, srJSONBytes)
@@ -304,7 +324,7 @@ func getQueryResultForQueryString(stub shim.ChaincodeStubInterface, queryString 
 // 	}
 
 // 	// Get data from Invoice
-// 	keyCheckInv := TxtInv + args[0]
+// 	keyCheckInv := TxtCCR + args[0]
 // 	InvInvoiceDoubleFinanceJSONBytes, _ := stub.GetState(keyCheckInv)
 // 	InvSr := CCRcertificateReceipt{}
 // 	err3 := json.Unmarshal(InvInvoiceDoubleFinanceJSONBytes, &InvSr)
@@ -417,7 +437,7 @@ func getQueryResultForQueryString(stub shim.ChaincodeStubInterface, queryString 
 
 // 	//@4 Check if InvRemainingAmount < inv_amount_use.
 // 	//If true, return ERROR (case trying to finance more than remain)
-// 	InvkeyCheck := TxtInv + sr.InvIdentity
+// 	InvkeyCheck := TxtCCR + sr.InvIdentity
 // 	InvInvoiceDoubleFinanceJSONBytes, _ := stub.GetState(InvkeyCheck)
 // 	// GET InvSR
 // 	InvSR := CCRcertificateReceipt{}
